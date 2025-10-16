@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atmo Weather</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="dashboard-container">
+    
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="logo">
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Ccircle cx='60' cy='100' r='35' fill='%23f59e0b'/%3E%3Cpath d='M100 50 L100 130 C100 145 115 145 115 130 L115 70 Z' fill='%232563eb'/%3E%3Cpath d='M130 60 L130 130 C130 145 145 145 145 130 L145 80 Z' fill='%2360a5fa'/%3E%3C/svg%3E" alt="Atmo Logo">
+        <span>Atmo Weather</span>
+      </div>
+      <nav class="menu">
+        <ul>
+          <li class="active">Dashboard</li>
+          <li>Maps</li>
+          <li>Pin Location</li>
+          <li>Calendar</li>
+        </ul>
+      </nav>
+      <div class="system">
+        <ul>
+          <li>Settings</li>
+          <li>Log Out</li>
+        </ul>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="top-bar">
+        <div class="date-info">
+          <h2 id="city-name">Loading...</h2>
+          <p id="current-date"></p>
+        </div>
+        <div class="search-bar">
+          <input type="text" id="search-input" placeholder="Search for a city..." />
+          <button id="search-btn">Search</button>
+        </div>
+      </div>
+
+      <div class="dashboard-grid">
+        <div class="stat-card">
+          <div class="stat-card-header">
+            <span class="stat-icon">💨</span>
+            <h3>Wind Speed</h3>
+          </div>
+          <p id="wind-speed">--</p>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-header">
+            <span class="stat-icon">💧</span>
+            <h3>Humidity</h3>
+          </div>
+          <p id="humidity">--</p>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-header">
+            <span class="stat-icon">🌡️</span>
+            <h3>Feels Like</h3>
+          </div>
+          <p id="feels-like">--</p>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-header">
+            <span class="stat-icon">👁️</span>
+            <h3>Visibility</h3>
+          </div>
+          <p id="visibility">--</p>
+        </div>
+        <div class="chart">
+          <h3>📊 Weekly Temperature Trend</h3>
+          <canvas id="tempChart"></canvas>
+        </div>
+      </div>
+
+      <div class="locations" id="locations-container">
+        <!-- Location cards will be populated here -->
+      </div>
+    </main>
+
+    <!-- Right Panel -->
+    <aside class="right-panel">
+      <div class="current-weather">
+        <h2 id="right-city">Loading...</h2>
+        <div class="current-weather-icon" id="main-weather-icon">🌤️</div>
+        <div class="temp" id="right-temp">--°C</div>
+        <div class="desc" id="right-desc">--</div>
+      </div>
+
+      <div class="hourly-forecast">
+        <h3>⏰ Hourly Forecast</h3>
+        <div id="hourly-forecast"></div>
+      </div>
+
+      <div class="sunrise-sunset">
+        <h3>🌅 Sunrise & Sunset</h3>
+        <div class="sun-time">
+          <span class="sun-icon">🌅</span>
+          <div class="sun-info">
+            <div class="sun-label">Sunrise</div>
+            <div class="sun-value" id="sunrise-time">--</div>
+          </div>
+        </div>
+        <div class="sun-time">
+          <span class="sun-icon">🌇</span>
+          <div class="sun-info">
+            <div class="sun-label">Sunset</div>
+            <div class="sun-value" id="sunset-time">--</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+const apiKey = "a013e514f43881cc62d7f57007febe9d";
+const searchInput = document.getElementById('search-input');
+const searchBtn = document.getElementById('search-btn');
+const cityName = document.getElementById('city-name');
+const tempChartCanvas = document.getElementById('tempChart');
+let tempChart;
+
+// Weather icon mapping
+function getWeatherIcon(weatherMain, isDay = true) {
+  const icons = {
+    'Clear': isDay ? '☀️' : '🌙',
+    'Clouds': '☁️',
+    'Rain': '🌧️',
+    'Drizzle': '🌦️',
+    'Thunderstorm': '⛈️',
+    'Snow': '❄️',
+    'Mist': '🌫️',
+    'Fog': '🌫️',
+    'Haze': '🌫️',
+    'Smoke': '💨',
+    'Dust': '🌪️',
+    'Sand': '🌪️'
+  };
+  return icons[weatherMain] || '🌤️';
+}
+
+// Initialize chart
+function initChart(data) {
+  if (tempChart) tempChart.destroy();
+  tempChart = new Chart(tempChartCanvas, {
+    type: 'line',
+    data: {
+      labels: data.labels,
+      datasets: [{
+        label: 'Temperature (°C)',
+        data: data.values,
+        borderColor: '#2563eb',
+        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 6,
+        pointBackgroundColor: '#f59e0b',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        pointHoverRadius: 8
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { 
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(30, 41, 59, 0.95)',
+          padding: 12,
+          borderRadius: 8,
+          titleFont: { size: 14, weight: 'bold' },
+          bodyFont: { size: 13 }
+        }
+      },
+      scales: { 
+        y: { 
+          beginAtZero: false,
+          grid: { color: 'rgba(37, 99, 235, 0.05)' },
+          ticks: {
+            callback: function(value) {
+              return value + '°C';
+            }
+          }
+        },
+        x: {
+          grid: { color: 'rgba(37, 99, 235, 0.05)' }
+        }
+      }
+    }
+  });
+}
+
+// Fetch current weather
+async function fetchCurrentWeather(city) {
+  try {
+    const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric`);
+    const data = await res.json();
+
+    if (data.cod !== 200) throw new Error("City not found");
+
+    // Update main stats
+    document.getElementById('wind-speed').textContent = `${data.wind.speed} m/s`;
+    document.getElementById('humidity').textContent = `${data.main.humidity}%`;
+    document.getElementById('feels-like').textContent = `${Math.round(data.main.feels_like)}°C`;
+    document.getElementById('visibility').textContent = `${(data.visibility / 1000).toFixed(1)} km`;
+
+    // Right panel current weather
+    const isDay = data.weather[0].icon.includes('d');
+    const weatherIcon = getWeatherIcon(data.weather[0].main, isDay);
+    
+    document.getElementById('right-city').textContent = data.name;
+    document.getElementById('main-weather-icon').textContent = weatherIcon;
+    document.getElementById('right-temp').textContent = `${Math.round(data.main.temp)}°C`;
+    document.getElementById('right-desc').textContent = data.weather[0].description;
+
+    // Sunrise & Sunset
+    const sunrise = new Date(data.sys.sunrise * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const sunset = new Date(data.sys.sunset * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('sunrise-time').textContent = sunrise;
+    document.getElementById('sunset-time').textContent = sunset;
+
+  } catch (err) {
+    console.error("Error fetching current weather:", err);
+  }
+}
+
+// Fetch forecast data
+async function fetchWeather(city) {
+  try {
+    const res = await fetch(`https://api.openweathermap.org/data/2.5/forecast?q=${city}&appid=${apiKey}&units=metric`);
+    const data = await res.json();
+
+    if (data.cod !== "200") throw new Error("City not found");
+    
+    cityName.textContent = data.city.name + ', ' + data.city.country;
+
+    // Get daily temps (one per day)
+    const dailyData = {};
+    data.list.forEach(item => {
+      const date = new Date(item.dt_txt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      if (!dailyData[date]) {
+        dailyData[date] = item.main.temp;
+      }
+    });
+
+    const labels = Object.keys(dailyData).slice(0, 7);
+    const temps = Object.values(dailyData).slice(0, 7);
+
+    initChart({ labels, values: temps });
+
+    // Update hourly forecast in right panel
+    updateHourlyForecast(data.list.slice(0, 6));
+
+    // Update location cards with nearby forecasts
+    updateLocationCards(data.list.slice(0, 3));
+
+    // Also fetch current weather
+    fetchCurrentWeather(city);
+
+  } catch (err) {
+    alert("Error: " + err.message);
+  }
+}
+
+// Update hourly forecast
+function updateHourlyForecast(hourlyData) {
+  const container = document.getElementById('hourly-forecast');
+  container.innerHTML = hourlyData.map(item => {
+    const time = new Date(item.dt_txt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const temp = Math.round(item.main.temp);
+    const icon = getWeatherIcon(item.weather[0].main);
+    return `
+      <div class="hourly-item">
+        <div class="hourly-time">${time}</div>
+        <div class="hourly-icon">${icon}</div>
+        <div class="hourly-temp">${temp}°C</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// Update location cards
+function updateLocationCards(forecastData) {
+  const container = document.getElementById('locations-container');
+  container.innerHTML = forecastData.map((item, index) => {
+    const time = new Date(item.dt_txt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const temp = Math.round(item.main.temp);
+    const tempMin = Math.round(item.main.temp_min);
+    const tempMax = Math.round(item.main.temp_max);
+    const icon = getWeatherIcon(item.weather[0].main);
+    return `
+      <div class="location-card">
+        <div class="location-card-icon">${icon}</div>
+        <div class="location-card-time">${time}</div>
+        <div class="location-card-temp">${temp}°</div>
+        <div class="location-card-range">${tempMin}° / ${tempMax}°</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// Search button event
+searchBtn.addEventListener('click', () => {
+  const city = searchInput.value.trim();
+  if (city) fetchWeather(city);
+});
+
+// Enter key search
+searchInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    const city = searchInput.value.trim();
+    if (city) fetchWeather(city);
+  }
+});
+
+// Auto load default city
+fetchWeather("Dubai");
+
+// Update current date
+document.getElementById('current-date').textContent = new Date().toDateString();
+  </script>
+</body>
+</html>
