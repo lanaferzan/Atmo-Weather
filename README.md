@@ -18,7 +18,7 @@ A modern, responsive dashboard template built with HTML and CSS. Fully mobile-fr
 
 Check out the live demo hosted on GitHub Pages:
 
-[🌐 Live Demo](https://<USERNAME>.github.io/<REPO>/)
+[🌐 Live Demo](https://lanaferzan.github.io/Atmo-Weather/)
 
 
 ---
@@ -28,5 +28,6 @@ Check out the live demo hosted on GitHub Pages:
 This project is open-source and available under the MIT License.
 
 ```
+
 
 
